@@ -7,6 +7,7 @@ import org.openweather.sdk.exception.WeatherApiException;
 import org.openweather.sdk.model.SdkMode;
 import org.openweather.sdk.model.WeatherResponse;
 
+import java.time.Duration;
 import java.util.Optional;
 
 /**
@@ -16,51 +17,71 @@ import java.util.Optional;
  */
 public class WeatherSDKImpl implements WeatherSDK {
 
+    private static final Duration DEFAULT_POLLING_INTERVAL = Duration.ofMinutes(8);
+
     private final OpenWeatherApi apiClient;
     private final WeatherCacheManager cacheManager;
     private final SdkMode mode;
-    //TODO: PollingService будет добавлен позже, в отдельной задаче.
+    private final PollingService pollingService;
 
     /**
-     * Создает новый экземпляр WeatherSDKImpl.
+     * Создает новый экземпляр WeatherSDKImpl с настраиваемым интервалом опроса.
      *
-     * @param apiKey API-ключ OpenWeatherMap (используется для инициализации OpenWeatherApi).
+     * @param apiKey API-ключ OpenWeatherMap.
      * @param mode Режим работы SDK (ON_DEMAND или POLLING).
      * @param cacheManager Менеджер кэша.
+     * @param pollingInterval Пользовательский интервал для режима POLLING (может быть null).
      */
-    public WeatherSDKImpl(String apiKey, SdkMode mode, WeatherCacheManager cacheManager) {
+    public WeatherSDKImpl(
+            final String apiKey,
+            final SdkMode mode,
+            final WeatherCacheManager cacheManager,
+            final Duration pollingInterval) {
+
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalArgumentException("API Key cannot be null or empty.");
         }
         if (mode == null) {
             throw new IllegalArgumentException("SdkMode cannot be null.");
         }
+
         this.apiClient = new OpenWeatherApiClient(apiKey);
         this.cacheManager = cacheManager;
         this.mode = mode;
 
         if (mode == SdkMode.POLLING) {
-            //TODO: Здесь в будущей задаче будет инициализация PollingService
-            System.out.println("INFO: SDK initialized in POLLING mode. Polling service not yet active.");
+            Duration effectiveInterval = (pollingInterval != null) ? pollingInterval : DEFAULT_POLLING_INTERVAL;
+
+            this.pollingService = new PollingServiceImpl(this.apiClient, this.cacheManager, effectiveInterval);
+            this.pollingService.startPolling();
+        } else {
+            this.pollingService = null;
         }
+    }
+
+    /**
+     * Создает новый экземпляр WeatherSDKImpl с интервалом опроса по умолчанию.
+     */
+    public WeatherSDKImpl(final String apiKey, final SdkMode mode, final WeatherCacheManager cacheManager) {
+        this(apiKey, mode, cacheManager, null);
     }
 
     /**
      * Добавлю как все закончу
      */
     @Override
-    public WeatherResponse getCurrentWeather(String city) throws WeatherApiException {
+    public WeatherResponse getCurrentWeather(final String city) throws WeatherApiException {
         if (city == null || city.trim().isEmpty()) {
             throw new IllegalArgumentException("City name cannot be null or empty.");
         }
 
-        Optional<WeatherResponse> cachedResponse = cacheManager.getActual(city);
+        final Optional<WeatherResponse> cachedResponse = cacheManager.getActual(city);
 
         if (cachedResponse.isPresent()) {
             return cachedResponse.get();
         }
 
-        WeatherResponse apiResponse;
+        final WeatherResponse apiResponse;
         try {
             apiResponse = apiClient.getWeather(city);
         } catch (WeatherApiException e) {
@@ -80,9 +101,8 @@ public class WeatherSDKImpl implements WeatherSDK {
      */
     @Override
     public void shutdown() {
-        if (mode == SdkMode.POLLING) {
-            //TODO: На след таску
-            System.out.println("INFO: Polling service shutting down...");
+        if (pollingService != null) {
+            pollingService.shutdown();
         }
         System.out.println("INFO: WeatherSDK instance shut down.");
     }
