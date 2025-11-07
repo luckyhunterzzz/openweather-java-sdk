@@ -4,25 +4,25 @@ import org.openweather.sdk.exception.WeatherApiException;
 import org.openweather.sdk.model.WeatherResponse;
 
 /**
- * Публичный контракт (интерфейс) для доступа к функциональности SDK.
- * Предоставляет основной метод получения погоды и метод для корректного завершения работы.
+ * Public contract (interface) for accessing the core functionality of the SDK.
+ * Provides the main method for retrieving weather data and a method for graceful shutdown.
  */
 public interface WeatherSDK {
 
     /**
-     * Получает актуальную информацию о погоде для указанного города.
-     * Реализует логику кэширования: сначала проверяет кэш, затем, при необходимости,
-     * обращается к внешнему API.
+     * Retrieves the current weather information for the specified city.
+     * Implements caching logic: first checks the cache, then, if necessary,
+     * calls the external API.
      *
-     * @param city Название города (например, "Moscow", "Tokyo").
-     * @return Объект WeatherResponse с данными о погоде.
-     * @throws WeatherApiException Если произошла ошибка при работе с API.
+     * @param city The name of the city (e.g., "Moscow", "Tokyo").
+     * @return A WeatherResponse object with the weather data.
+     * @throws WeatherApiException If an error occurs during API interaction or processing.
      */
     WeatherResponse getCurrentWeather(String city) throws WeatherApiException;
 
     /**
-     * Вызывает корректное завершение работы SDK, включая остановку всех фоновых
-     * потоков и служб (например, PollingService).
+     * Initiates a graceful shutdown of the SDK, including stopping all background
+     * threads and services (e.g., PollingService).
      */
     void shutdown();
 }
