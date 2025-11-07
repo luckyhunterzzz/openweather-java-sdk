@@ -3,21 +3,22 @@ package org.openweather.sdk.util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Утилитарный класс для предоставления централизованного и переиспользуемого
- * экземпляра ObjectMapper. ObjectMapper потокобезопасен и его
- * переиспользование является хорошей практикой.
+ * Utility class that provides a centralized and reusable instance of
+ * {@link ObjectMapper}.
+ * <p>
+ * {@code ObjectMapper} is thread-safe, and reusing a single instance is considered
+ * a best practice for performance.
  */
 public final class JsonUtils {
 
-    /** Статический и финальный экземпляр ObjectMapper. */
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    /** Приватный конструктор, чтобы запретить создание экземпляров утилитарного класса. */
     private JsonUtils() {}
 
     /**
-     * Возвращает единственный экземпляр ObjectMapper.
-     * @return ObjectMapper.
+     * Returns the singleton instance of the {@code ObjectMapper}.
+     *
+     * @return The thread-safe {@code ObjectMapper} instance.
      */
     public static ObjectMapper getMapper() {
         return MAPPER;

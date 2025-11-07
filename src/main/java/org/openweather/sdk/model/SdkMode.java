@@ -1,17 +1,9 @@
 package org.openweather.sdk.model;
 
 /**
- * Определяет режим работы SDK для обновления погодных данных.
+ * Defines the SDK operating mode for updating weather data.
  */
 public enum SdkMode {
-    /**
-     * Обновление данных происходит только по запросу клиента (on-demand).
-     */
     ON_DEMAND,
-
-    /**
-     * SDK регулярно опрашивает (polls) OpenWeather API для обновления всех
-     * кэшированных городов в фоновом режиме. Обеспечивает почти нулевую задержку.
-     */
     POLLING
 }

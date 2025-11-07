@@ -8,10 +8,7 @@ import org.openweather.sdk.model.WeatherResponse;
  * для проверки актуальности (TTL - Time-To-Live).
  */
 public record CacheEntry(
-        /** Объект ответа погоды. */
         WeatherResponse weatherResponse,
-
-        /** Момент времени (UNIX timestamp в миллисекундах), когда данные были помещены в кэш. */
         long timestamp
 ) {
     /**

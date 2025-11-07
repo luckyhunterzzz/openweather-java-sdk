@@ -3,15 +3,13 @@ package org.openweather.sdk.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Вложенная модель, описывающая общие условия погоды.
- * Соответствует структуре "weather" в конечном ответе SDK.
+ * Nested model representing general weather conditions.
+ * Corresponds to the "weather" structure in the final SDK response.
  */
 public record Weather(
-        /** Краткое описание погоды (например, "Clouds", "Clear"). */
         @JsonProperty("main")
         String main,
 
-        /** Детальное описание погоды (например, "scattered clouds"). */
         @JsonProperty("description")
         String description
 ) {

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.openweather.sdk.exception.WeatherApiException;
 import org.openweather.sdk.model.WeatherResponse;
 import org.openweather.sdk.util.JsonUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -15,10 +17,13 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Класс, отвечающий за прямое взаимодействие с OpenWeatherMap API.
- * Выполняет HTTP-запросы, обрабатывает коды состояния и парсит ответ.
+ * The class responsible for direct interaction with the OpenWeatherMap API.
+ * It executes HTTP requests, handles status codes, and parses the response.
+ * Implements {@link OpenWeatherApi} public contract.
  */
 public class OpenWeatherApiClient implements OpenWeatherApi {
+
+    private static final Logger log = LoggerFactory.getLogger(OpenWeatherApiClient.class);
 
     private static final String API_BASE_URL = "https://api.openweathermap.org/data/2.5/weather";
     private static final String UNITS = "standard";
@@ -28,8 +33,9 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
     private final ObjectMapper objectMapper;
 
     /**
-     * Инициализирует клиент API.
-     * @param apiKey Ваш API ключ для OpenWeatherMap.
+     * Initializes the API client using the default {@link HttpClient}.
+     * @param apiKey Your OpenWeatherMap API key.
+     * @throws IllegalArgumentException if the API key is null or empty.
      */
     public OpenWeatherApiClient(String apiKey) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
@@ -40,8 +46,17 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
         this.objectMapper = JsonUtils.getMapper();
     }
 
+    /**
+     * Initializes the API client, allowing injection of a custom {@link HttpClient}
+     * for better testing capabilities.
+     *
+     * @param apiKey Your OpenWeatherMap API key.
+     * @param httpClient The custom HTTP client to use for requests.
+     * @throws IllegalArgumentException if the API key is null or empty.
+     */
     public OpenWeatherApiClient(String apiKey, HttpClient httpClient) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
+            log.error("API Key cannot be null or empty.");
             throw new IllegalArgumentException("API Key cannot be null or empty.");
         }
         this.apiKey = apiKey;
@@ -50,9 +65,9 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
     }
 
     /**
-     * Формирует полный URL для запроса погоды.
-     * @param cityName Название города.
-     * @return Полный URI для API-запроса.
+     * Constructs the full URI for the weather request.
+     * @param cityName The name of the city.
+     * @return The full URI for the API request.
      */
     protected URI buildUri(String cityName) {
         String encodedCityName = URLEncoder.encode(cityName, StandardCharsets.UTF_8);
@@ -61,34 +76,35 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
     }
 
     /**
-     * Обрабатывает HTTP код состояния и выбрасывает соответствующее исключение.
-     * @param statusCode Код состояния HTTP.
-     * @param uri URI, по которому был сделан запрос.
-     * @throws WeatherApiException Исключение с описанием ошибки.
+     * Handles the HTTP status code and throws a corresponding exception if needed.
+     * @param statusCode The HTTP status code.
+     * @param uri The URI that was requested.
+     * @throws WeatherApiException Exception describing the error.
      */
     private void handleResponseStatus(int statusCode, URI uri) throws WeatherApiException {
-        switch (statusCode) {
-            case 401:
-                throw new WeatherApiException("Unauthorized. Invalid API key or request format. Status Code: " + statusCode);
-            case 404:
-                throw new WeatherApiException("City not found or invalid request parameter. Status Code: " + statusCode);
-            case 429:
-                throw new WeatherApiException("Rate limit exceeded. Too many requests. Status Code: " + statusCode);
-            case 500, 502, 503, 504:
-                throw new WeatherApiException("Server error in OpenWeather API. Please try again later. Status Code: " + statusCode);
-            case 200:
-                break;
-            default:
-                throw new WeatherApiException("Unexpected error when calling API. Status Code: " + statusCode + ", URI: " + uri);
+        if (statusCode == 200) {
+            log.debug("API call successful (Status 200).");
+            return;
         }
+
+        String errorMessage = switch (statusCode) {
+            case 401 -> "Unauthorized. Invalid API key or request format.";
+            case 404 -> "City not found or invalid request parameter.";
+            case 429 -> "Rate limit exceeded. Too many requests.";
+            case 500, 502, 503, 504 -> "Server error in OpenWeather API. Please try again later.";
+            default -> "Unexpected error when calling API.";
+        };
+
+        log.error("API Error: {} Status Code: {}. URI: {}", errorMessage, statusCode, uri);
+        throw new WeatherApiException(errorMessage + " Status Code: " + statusCode);
     }
 
     /**
-     * Конвертирует сырой JSON-ответ от OpenWeather API в унифицированную модель WeatherResponse SDK.
-     * Здесь происходит маппинг полей.
-     * @param jsonBody Сырая JSON-строка от API.
-     * @return Объект WeatherResponse, готовый для передачи клиенту SDK.
-     * @throws WeatherApiException Если произошла ошибка парсинга JSON.
+     * Converts the raw JSON response from the OpenWeather API into the unified SDK model {@link WeatherResponse}.
+     *
+     * @param jsonBody The raw JSON string from the API.
+     * @return A {@link WeatherResponse} object ready to be passed to the SDK client.
+     * @throws WeatherApiException If a JSON parsing error occurs.
      */
     private WeatherResponse parseJsonToResponse(String jsonBody) throws WeatherApiException {
         try {
@@ -122,6 +138,7 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
                     root.path("name").asText()
             );
         } catch (Exception e) {
+            log.error("Failed to parse API response JSON into SDK model. Raw JSON: {}", jsonBody, e);
             throw new WeatherApiException("Failed to parse API response JSON into SDK model.", e);
         }
     }
@@ -130,11 +147,11 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
     /**
      * {@inheritDoc}
      *
-     * Выполняет синхронный запрос к OpenWeather API и возвращает обработанный ответ.
+     * Executes a synchronous request to the OpenWeather API and returns the processed response.
      *
-     * @param cityName Название города.
-     * @return Объект WeatherResponse.
-     * @throws WeatherApiException В случае ошибки HTTP или ошибки API.
+     * @param cityName The name of the city.
+     * @return The {@link WeatherResponse} object.
+     * @throws WeatherApiException In case of an HTTP error, API status error, or parsing error.
      */
     @Override
     public WeatherResponse getWeather(String cityName) throws WeatherApiException {
@@ -151,8 +168,12 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
 
             return parseJsonToResponse(response.body());
 
-        } catch (IOException | InterruptedException e) {
-            throw new WeatherApiException("Network error or request interrupted.", e);
+        } catch (IOException e) {
+            log.error("Network error during API request for {}.", cityName, e);
+            throw new WeatherApiException("Network error or connectivity issue.", e);
+        } catch (InterruptedException e) {
+            log.warn("API request for {} was interrupted.", cityName, e);
+            throw new WeatherApiException("API request interrupted.", e);
         }
     }
 }

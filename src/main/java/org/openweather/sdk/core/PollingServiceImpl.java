@@ -3,6 +3,8 @@ package org.openweather.sdk.core;
 import org.openweather.sdk.api.OpenWeatherApi;
 import org.openweather.sdk.cache.WeatherCacheManager;
 import org.openweather.sdk.exception.WeatherApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Set;
@@ -12,10 +14,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Реализация PollingService, использующая ScheduledExecutorService для
- * периодического обновления кэшированных данных.
+ * Implementation of the PollingService, utilizing a ScheduledExecutorService for
+ * periodic updates of cached weather data.
  */
 public class PollingServiceImpl implements PollingService {
+
+    private static final Logger log = LoggerFactory.getLogger(PollingServiceImpl.class);
 
     private final OpenWeatherApi apiClient;
     private final WeatherCacheManager cacheManager;
@@ -25,14 +29,15 @@ public class PollingServiceImpl implements PollingService {
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     /**
-     * Инициализирует Polling Service.
+     * Initializes the Polling Service.
      *
-     * @param apiClient Клиент для взаимодействия с внешним API.
-     * @param cacheManager Менеджер кэша.
-     * @param pollingInterval Интервал опроса.
+     * @param apiClient The client for interacting with the external OpenWeather API.
+     * @param cacheManager The cache manager.
+     * @param pollingInterval The interval for polling updates.
      */
     public PollingServiceImpl(OpenWeatherApi apiClient, WeatherCacheManager cacheManager, Duration pollingInterval) {
         if (pollingInterval == null || pollingInterval.isNegative() || pollingInterval.isZero()) {
+            log.error("Polling interval must be a positive duration. Provided: {}", pollingInterval);
             throw new IllegalArgumentException("Polling interval must be a positive duration.");
         }
         this.apiClient = apiClient;
@@ -48,9 +53,9 @@ public class PollingServiceImpl implements PollingService {
     }
 
     /**
-     * Задача, которая выполняет опрос:
-     * 1. Принудительно очищает кэш от устаревших данных.
-     * 2. Обновляет все оставшиеся города.
+     * Defines the scheduled task that performs polling:
+     * 1. Explicitly evicts expired entries from the cache.
+     * 2. Updates the weather data for all remaining cached cities.
      */
     private Runnable getPollingTask() {
         return () -> {
@@ -60,32 +65,37 @@ public class PollingServiceImpl implements PollingService {
                 Set<String> citiesToUpdate = cacheManager.getCachedCities();
 
                 if (citiesToUpdate.isEmpty()) {
-                    System.out.println("Polling: Cache is empty. No cities to update.");
+                    log.info("Cache is empty. No cities to update.");
                     return;
                 }
 
-                System.out.printf("Polling: Starting update for %d cities: %s\n", citiesToUpdate.size(), citiesToUpdate);
+                log.info("Starting update for {} cities: {}", citiesToUpdate.size(), citiesToUpdate);
 
                 for (String city : citiesToUpdate) {
                     try {
                         var response = apiClient.getWeather(city);
                         cacheManager.put(city, response);
-                        System.out.printf("Polling: Successfully updated weather for %s.\n", city);
+                        log.info("Successfully updated weather for {}.", city);
                     } catch (WeatherApiException e) {
-                        System.err.printf("Polling: Failed to update weather for %s. Error: %s\n", city, e.getMessage());
+                        log.error("Failed to update weather for {}. Error: {}", city, e.getMessage());
                     } catch (Exception e) {
-                        System.err.printf("Polling: Unexpected error during update for %s. Error: %s\n", city, e.getMessage());
+                        log.error("Unexpected error during update for {}.", city, e);
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Polling Task encountered a critical error: " + e.getMessage());
+                log.error("Polling Task encountered a critical error.", e);
             }
         };
     }
 
     /**
-     * Потом
-     * Защищен от двойного запуска.
+     * {@inheritDoc}
+     * Starts the scheduled background task for periodically updating cached weather data.
+     * <p>
+     * This method is designed to be idempotent; if the polling service is already running,
+     * this call will be ignored, preventing the creation of duplicate scheduled tasks.
+     * The polling interval is determined by the value provided during service initialization.
+     * </p>
      */
     @Override
     public void startPolling() {
@@ -96,32 +106,40 @@ public class PollingServiceImpl implements PollingService {
                     pollingIntervalMillis,
                     TimeUnit.MILLISECONDS
             );
-            System.out.printf("INFO: Polling Service started. Update interval: %d ms.\n", pollingIntervalMillis);
+            log.info("Polling Service started. Update interval: {} ms.", pollingIntervalMillis);
         } else {
-            System.out.println("WARNING: Polling Service is already running, ignoring duplicate start call.");
+            log.warn("Polling Service is already running, ignoring duplicate start call.");
         }
     }
 
     /**
-     * Потом
+     * {@inheritDoc}
+     * Initiates a graceful shutdown of the underlying scheduled executor service.
+     * <p>
+     * This method attempts to stop all executing polling tasks and waits up to 30 seconds
+     * for their completion. If the termination timeout is reached, the scheduler is
+     * forcibly shut down using {@code shutdownNow()}.
+     * </p>
+     * The service is marked as stopped, ensuring it can be safely restarted later.
      */
     @Override
     public void shutdown() {
         if (running.compareAndSet(true, false)) {
-            System.out.println("INFO: Polling Service shutting down...");
+            log.info("Polling Service shutting down...");
             try {
                 scheduler.shutdown();
                 if (!scheduler.awaitTermination(30, TimeUnit.SECONDS)) {
                     scheduler.shutdownNow();
-                    System.out.println("WARNING: Polling Service forcibly terminated.");
+                    log.warn("Polling Service forcibly terminated.");
                 }
             } catch (InterruptedException e) {
                 scheduler.shutdownNow();
                 Thread.currentThread().interrupt();
+                log.error("Polling Service shutdown was interrupted.", e);
             }
-            System.out.println("INFO: Polling Service stopped.");
+            log.info("Polling Service stopped.");
         } else {
-            System.out.println("INFO: Polling Service was already stopped or never started.");
+            log.info("Polling Service was already stopped or never started.");
         }
     }
 }
