@@ -20,7 +20,7 @@ public class PollingServiceImpl implements PollingService {
     private final OpenWeatherApi apiClient;
     private final WeatherCacheManager cacheManager;
     private final ScheduledExecutorService scheduler;
-    private final long pollingIntervalSeconds;
+    private final long pollingIntervalMillis;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -37,7 +37,7 @@ public class PollingServiceImpl implements PollingService {
         }
         this.apiClient = apiClient;
         this.cacheManager = cacheManager;
-        this.pollingIntervalSeconds = pollingInterval.getSeconds();
+        this.pollingIntervalMillis = pollingInterval.toMillis();
 
         this.scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(runnable);
@@ -93,10 +93,10 @@ public class PollingServiceImpl implements PollingService {
             scheduler.scheduleWithFixedDelay(
                     getPollingTask(),
                     0,
-                    pollingIntervalSeconds,
-                    TimeUnit.SECONDS
+                    pollingIntervalMillis,
+                    TimeUnit.MILLISECONDS
             );
-            System.out.printf("INFO: Polling Service started. Update interval: %d seconds.\n", pollingIntervalSeconds);
+            System.out.printf("INFO: Polling Service started. Update interval: %d ms.\n", pollingIntervalMillis);
         } else {
             System.out.println("WARNING: Polling Service is already running, ignoring duplicate start call.");
         }

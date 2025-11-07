@@ -40,12 +40,21 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
         this.objectMapper = JsonUtils.getMapper();
     }
 
+    public OpenWeatherApiClient(String apiKey, HttpClient httpClient) {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            throw new IllegalArgumentException("API Key cannot be null or empty.");
+        }
+        this.apiKey = apiKey;
+        this.httpClient = (httpClient != null) ? httpClient : HttpClient.newHttpClient();
+        this.objectMapper = JsonUtils.getMapper();
+    }
+
     /**
      * Формирует полный URL для запроса погоды.
      * @param cityName Название города.
      * @return Полный URI для API-запроса.
      */
-    private URI buildUri(String cityName) {
+    protected URI buildUri(String cityName) {
         String encodedCityName = URLEncoder.encode(cityName, StandardCharsets.UTF_8);
         String url = String.format("%s?q=%s&appid=%s&units=%s", API_BASE_URL, encodedCityName, apiKey, UNITS);
         return URI.create(url);
