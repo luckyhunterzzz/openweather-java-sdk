@@ -1,7 +1,6 @@
 # 🌦️ OpenWeather Java SDK
 
 [![Java 17+](https://img.shields.io/badge/Java-17%2B-blue)](https://www.oracle.com/java/)
-[![Maven Central](https://img.shields.io/maven-central/v/org.openweather/openweather-java-sdk.svg)](https://search.maven.org/artifact/org.openweather/openweather-java-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://img.shields.io/badge/tests-100%25-green)](#testing)
 
@@ -242,3 +241,4 @@ See `LICENSE` file for more details.
 💬 **Author:** *Airat Zaripov*  
 📦 **Version:** `1.0.0`  
 🔗 **Repository:** [https://github.com/luckyhunterzzz/openweather-java-sdk](https://github.com/luckyhunterzzz/openweather-java-sdk)
+
