@@ -139,7 +139,7 @@ class OpenWeatherApiClientTest {
 
         assertThatThrownBy(() -> apiClient.getWeather("Berlin"))
                 .isInstanceOf(WeatherApiException.class)
-                .hasMessageContaining("Network error or request interrupted");
+                .hasMessageContaining("Network error or connectivity issue");
     }
 
     @Test
