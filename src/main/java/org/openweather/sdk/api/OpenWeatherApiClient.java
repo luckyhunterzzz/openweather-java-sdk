@@ -3,7 +3,7 @@ package org.openweather.sdk.api;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.openweather.sdk.exception.WeatherApiException;
-import org.openweather.sdk.model.WeatherResponse;
+import org.openweather.sdk.model.*;
 import org.openweather.sdk.util.JsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,20 +117,20 @@ public class OpenWeatherApiClient implements OpenWeatherApi {
             JsonNode sysNode = root.path("sys");
 
             return new WeatherResponse(
-                    new org.openweather.sdk.model.Weather(
+                    new Weather(
                             weatherNode.path("main").asText(),
                             weatherNode.path("description").asText()
                     ),
-                    new org.openweather.sdk.model.Temperature(
+                    new Temperature(
                             mainNode.path("temp").asDouble(),
                             mainNode.path("feels_like").asDouble()
                     ),
                     root.path("visibility").asInt(),
-                    new org.openweather.sdk.model.Wind(
+                    new Wind(
                             windNode.path("speed").asDouble()
                     ),
                     root.path("dt").asLong(),
-                    new org.openweather.sdk.model.Sys(
+                    new Sys(
                             sysNode.path("sunrise").asLong(),
                             sysNode.path("sunset").asLong()
                     ),
